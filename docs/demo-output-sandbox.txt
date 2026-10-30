@@ -1,0 +1,77 @@
+
+== Paste2Pay demo  |  PayPal: sandbox  |  AI engine: rules
+
+== [1] Paste: samples/chat_order.txt
+[10:02] Maya Chen: Hi! Loved your ceramics stall at the market on Saturday
+[10:03] Me: Thank you Maya! What would you like?
+[10:04] Maya Chen: I'd like 2 x Speckled Mug @ $18 each and 1 Matcha Bowl for $32
+[10:05] Me: Great. Shipping to Portland is $6.50, total $74.50
+[10:05] Maya Chen: Perfect, send the invoice to maya.chen@example.com please
+  - AI extract: 2 item(s), customer='Maya Chen', currency=USD, confidence=1.0
+  - AI self-check: no issues
+  - decide: INVOICE: customer email found -> PayPal emails a professional invoice and tracks it
+  - PayPal: invoice INV2-XRMS-KGR9-6VU5-5MZ9 -> SENT
+      PayPal POST /v1/oauth2/token -> 200
+      PayPal POST /v2/invoicing/generate-next-invoice-number -> 200
+      PayPal POST /v2/invoicing/invoices -> 201
+      PayPal POST /v2/invoicing/invoices/INV2-XRMS-KGR9-6VU5-5MZ9/send -> 200
+      PayPal GET /v2/invoicing/invoices/INV2-XRMS-KGR9-6VU5-5MZ9 -> 200
+  => invoice INV2-XRMS-KGR9-6VU5-5MZ9 total 74.50 USD status AWAITING_PAYMENT  pay link: https://www.sandbox.paypal.com/invoice/p/#INV2-XRMS-KGR9-6VU5-5MZ9
+
+== [1] Paste: samples/ocr_invoice.txt
+ACME FLORAL STUDIO            INVOICE
+Bill to: Daniel Okafor
+Email: d.okafor@example.org
+Date: 2026-10-28
+
+Wedding centrepiece x4 - 180.00 EUR
+Bridal bouquet x1 - 95.00 EUR
+Delivery fee: 25.00 EUR
+Grand total: 300.00 EUR
+Payment terms: Net 15
+Note: Thank you for choosing Acme Floral!
+  - AI extract: 2 item(s), customer='Daniel Okafor', currency=EUR, confidence=1.0
+  - AI self-check: 'Wedding centrepiece': price read as a line total because that matches the stated total
+  - decide: INVOICE: customer email found -> PayPal emails a professional invoice and tracks it
+  - PayPal: invoice INV2-MPKP-FH3D-XUBV-L2NF -> SENT
+      PayPal POST /v2/invoicing/generate-next-invoice-number -> 200
+      PayPal POST /v2/invoicing/invoices -> 201
+      PayPal POST /v2/invoicing/invoices/INV2-MPKP-FH3D-XUBV-L2NF/send -> 200
+      PayPal GET /v2/invoicing/invoices/INV2-MPKP-FH3D-XUBV-L2NF -> 200
+  => invoice INV2-MPKP-FH3D-XUBV-L2NF total 300.00 EUR status AWAITING_PAYMENT  pay link: https://www.sandbox.paypal.com/invoice/p/#INV2-MPKP-FH3D-XUBV-L2NF
+
+== [1] Paste: samples/dm_no_email.txt
+Leo: hey can I get 3 candles at £8 each? Lavender scent pls
+Me: sure! and free shipping this week
+Leo: also a dozen tea lights at £0.50 each
+Leo: just send me a payment link
+  - AI extract: 2 item(s), customer='Leo', currency=GBP, confidence=1.0
+  - AI self-check: No customer email: will create a PayPal checkout link to paste back into the chat
+  - decide: ORDER: no email (chat/DM buyer) -> PayPal checkout link to paste back into the chat
+  - PayPal: order 29850891TF632240T -> PAYER_ACTION_REQUIRED
+      PayPal POST /v2/checkout/orders -> 200
+  => order 29850891TF632240T total 30.00 GBP status AWAITING_PAYMENT  pay link: https://www.sandbox.paypal.com/checkoutnow?token=29850891TF632240T
+
+== [2] Reconcile pasted payment notices (one is fake)
+  - 300.00 EUR from Daniel Okafor [BANK_TRANSFER] -> P2P-3DA35392BB (score 80): recorded BANK_TRANSFER payment on PayPal invoice -> MARKED_AS_PAID
+  - 74.50 USD from Maya Chen [PAYPAL] -> P2P-EDA611DB70 (score 80): WARNING: notification says paid, but PayPal API says SENT - possible fake payment screenshot/email; do not ship yet
+  - 42.00 USD from K. Unknown [BANK_TRANSFER] -> None (score 15): unmatched - needs a human (closest: P2P-EDA611DB70, partial amount)
+
+== [3] Sandbox: open the pay links with a sandbox *personal* account, then run sync in the web UI
+
+== [4] Ledger summary
+{
+  "count": 3,
+  "by_status": {
+    "AWAITING_PAYMENT": 2,
+    "PAID": 1
+  },
+  "outstanding": {
+    "GBP": "30.00",
+    "USD": "74.50"
+  },
+  "collected": {
+    "EUR": "300.00"
+  },
+  "exceptions": 1
+}
