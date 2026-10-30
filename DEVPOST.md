@@ -52,11 +52,11 @@ Paste2Pay is an AI receivables agent:
 `paypal-orders-v2` · `paypal-invoicing-v2` · `paypal-oauth2` · `paypal-sandbox` · `python` · `openai-compatible-llm` · `ollama` · `javascript` · `html5`
 
 ## Testing instructions for judges
-1. Run `git clone <repo> && cd <repo> && python3 -m paste2pay demo`. This works offline with no keys and prints every step.
+1. Run `git clone https://github.com/song11071696/paypal-ai-invoicer && cd paypal-ai-invoicer && python3 -m paste2pay demo`. This works offline with no keys and prints every step.
 2. Run `python3 -m paste2pay serve` and open http://localhost:8000. Click a sample, then **Read with AI**, then **Create in PayPal**. Use **Simulate buyer pays**, then **Sync**, then **Match payments**.
 3. For real PayPal sandbox calls, put a sandbox REST app's `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in `.env`. See the README section "Real PayPal sandbox".
 4. Run the tests with `python3 -m unittest discover -s tests`.
 
 ## Links
-- Code: `<public GitHub URL>`
-- Video: `<YouTube URL>`
+- Code: https://github.com/song11071696/paypal-ai-invoicer
+- Video: https://youtu.be/hV_Ah4N2yMY
