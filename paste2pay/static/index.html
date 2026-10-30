@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paste2Pay - AI receivables agent on PayPal</title>
+<style>
+  :root{--ink:#14213d;--muted:#5c677d;--line:#e3e7ef;--bg:#f6f8fb;--blue:#1f5bd8;--green:#178a4c;--amber:#b7791f;--red:#c53030;--card:#fff}
+  *{box-sizing:border-box} body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+  header{display:flex;align-items:center;gap:14px;padding:14px 24px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+  header h1{font-size:20px;margin:0} header .tag{color:var(--muted);font-size:14px}
+  .pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:#fff;white-space:nowrap}
+  .pill.pp{border-color:#9db7f0;background:#eef3fe;color:#123c8f} .pill.ai{border-color:#c7a6f5;background:#f6effe;color:#5b21b6}
+  main{max-width:1280px;margin:0 auto;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .wide{grid-column:1/-1} h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px}
+  textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+  button{font:inherit;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)} button.pp{background:var(--blue)} button.ai{background:#6d28d9}
+  button.sm{padding:4px 9px;font-size:13px} button:disabled{opacity:.5;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  .chips button{background:#fff;color:var(--ink);border:1px dashed #b8c1d1;font-size:13px;padding:4px 10px}
+  table{width:100%;border-collapse:collapse;font-size:14px} th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  input,select{font:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 6px;width:100%}
+  .issues div{font-size:13px;padding:4px 8px;border-radius:6px;margin:3px 0}
+  .error{background:#fde8e8;color:var(--red)} .warning{background:#fff4e0;color:var(--amber)} .info{background:#eef3fe;color:#123c8f}
+  .conf{height:8px;background:#eee;border-radius:9px;overflow:hidden;flex:1;max-width:160px} .conf i{display:block;height:100%;background:var(--green)}
+  .trace{font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;background:#0f172a;color:#dbe4ff;border-radius:8px;padding:12px;min-height:150px;max-height:380px;overflow:auto;white-space:pre-wrap}
+  .trace .s{color:#9ae6b4} .trace .c{color:#90cdf4} .trace .e{color:#feb2b2} .trace .a{color:#d6bcfa}
+  .badge{font-size:12px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap}
+  .PAID{background:#e3f6ea;color:var(--green)} .AWAITING_PAYMENT,.DRAFT,.APPROVED{background:#eef3fe;color:#123c8f}
+  .PARTIALLY_PAID,.NEEDS_REVIEW{background:#fff4e0;color:var(--amber)} .MISMATCH,.FAILED,.SUSPICIOUS{background:#fde8e8;color:var(--red)} .CANCELLED,.REFUNDED{background:#eee;color:#555}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  .tile{border:1px solid var(--line);border-radius:10px;padding:10px} .tile b{display:block;font-size:20px} .tile span{color:var(--muted);font-size:12px}
+  .muted{color:var(--muted);font-size:13px} a{color:var(--blue)} .events{font-size:12px;color:var(--muted);margin-top:4px}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;display:none;max-width:420px}
+  @media (max-width:900px){main{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Paste2Pay</h1><span class="tag">paste a chat or invoice &rarr; get paid with PayPal</span>
+  <span style="flex:1"></span>
+  <span class="pill ai" id="aiPill">AI: ...</span><span class="pill pp" id="ppPill">PayPal: ...</span>
+</header>
+<main>
+  <section class="card">
+    <h2><span class="n">1</span> Paste an order (chat, email, OCR text)</h2>
+    <div class="row chips" id="chips"></div>
+    <textarea id="text" placeholder="Paste a WhatsApp/Instagram chat, an emailed order, or OCR text from an invoice photo..."></textarea>
+    <div class="row">
+      <button class="ai" id="btnExtract">Read with AI</button>
+      <span class="muted" id="extractInfo"></span>
+    </div>
+    <div id="draft" style="display:none">
+      <h2 style="margin-top:12px"><span class="n">2</span> AI draft <span class="muted" id="engine"></span></h2>
+      <div class="row"><span class="muted">Confidence</span><div class="conf"><i id="confBar"></i></div><span id="confTxt" class="muted"></span></div>
+      <div class="row">
+        <div style="flex:1"><span class="muted">Customer</span><input id="cName"></div>
+        <div style="flex:1"><span class="muted">Email</span><input id="cEmail"></div>
+        <div style="width:90px"><span class="muted">Currency</span><input id="cCcy"></div>
+      </div>
+      <table><thead><tr><th>Item</th><th style="width:70px">Qty</th><th style="width:110px">Unit price</th></tr></thead><tbody id="items"></tbody></table>
+      <div class="row muted" id="amounts"></div>
+      <div class="issues" id="issues"></div>
+      <div class="row">
+        <select id="mode" style="width:auto">
+          <option value="auto">Agent decides (invoice if email, else checkout link)</option>
+          <option value="invoice">PayPal invoice (Invoicing v2)</option>
+          <option value="order">PayPal checkout link (Orders v2)</option>
+        </select>
+        <button class="pp" id="btnCreate">Create in PayPal</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">3</span> Agent trace &amp; PayPal API calls</h2>
+    <div class="trace" id="trace">Waiting for an order...</div>
+    <div class="row" id="result"></div>
+  </section>
+
+  <section class="card wide">
+    <h2><span class="n">4</span> Receivables ledger
+      <span style="flex:1"></span>
+      <button class="pp sm" id="btnSync">Sync with PayPal</button>
+      <button class="ghost sm" id="btnReset">Reset</button></h2>
+    <div class="tiles">
+      <div class="tile"><span>Outstanding</span><b id="tOut">-</b></div>
+      <div class="tile"><span>Collected</span><b id="tCol">-</b></div>
+      <div class="tile"><span>Records</span><b id="tCnt">0</b></div>
+      <div class="tile"><span>Exceptions</span><b id="tExc">0</b></div>
+    </div>
+    <table><thead><tr><th>Record</th><th>Customer</th><th>Type</th><th>Total</th><th>Status</th><th>PayPal</th><th>Actions</th></tr></thead>
+      <tbody id="ledger"><tr><td colspan="7" class="muted">No records yet.</td></tr></tbody></table>
+  </section>
+
+  <section class="card wide">
+    <h2><span class="n">5</span> Reconcile: paste payment notices or bank statement lines</h2>
+    <textarea id="payText" style="min-height:90px" placeholder="Bank transfer from Daniel Okafor 300.00 EUR ref INV-0002&#10;You received $74.50 USD from Maya Chen via PayPal"></textarea>
+    <div class="row"><button class="ai" id="btnMatch">Match payments with AI + PayPal</button><button class="ghost sm" id="btnPaySample">Load sample notices</button></div>
+    <div id="matches"></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+let samples = {}, lastEx = null, mode = 'mock';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const j = await r.json(); if(!r.ok) throw new Error(j.error || r.status); return j;
+}
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',4000); }
+function money(obj){ return Object.entries(obj||{}).map(([c,v])=>`${v} ${c}`).join(' · ') || '0'; }
+
+async function init(){
+  const s = await api('/api/status'); mode = s.paypal_mode;
+  $('aiPill').textContent = 'AI: ' + s.ai_engine;
+  $('ppPill').textContent = 'PayPal: ' + (s.paypal_mode === 'sandbox' ? 'sandbox REST (live calls)' : 'mock (no keys)');
+  samples = await api('/api/samples');
+  const labels = {chat_order:'Chat order (has email)', ocr_invoice:'OCR invoice photo', dm_no_email:'DM, no email', chinese_order:'Chinese order'};
+  for (const k of Object.keys(samples)) { if(k==='payments') continue;
+    const b=document.createElement('button'); b.textContent=labels[k]||k; b.onclick=()=>{$('text').value=samples[k]; extract();}; $('chips').appendChild(b); }
+  const q = new URLSearchParams(location.search); if(q.get('paid')) toast('Buyer returned from PayPal - payment captured for '+q.get('paid'));
+  if(q.get('cancelled')) toast('Buyer cancelled the PayPal checkout');
+  loadLedger();
+}
+
+async function extract(){
+  const text=$('text').value.trim(); if(!text) return toast('Paste something first');
+  $('btnExtract').disabled=true; $('extractInfo').textContent='reading...';
+  try{ lastEx = await api('/api/extract',{text}); renderDraft(lastEx); $('extractInfo').textContent=`done in ${lastEx.ms} ms`; }
+  catch(e){ toast(e.message); } finally{ $('btnExtract').disabled=false; }
+}
+function renderDraft(ex){
+  $('draft').style.display='block'; $('engine').textContent='engine: '+ex.engine;
+  $('confBar').style.width=(ex.confidence*100)+'%'; $('confTxt').textContent=Math.round(ex.confidence*100)+'%';
+  $('cName').value=ex.customer.name||''; $('cEmail').value=ex.customer.email||''; $('cCcy').value=ex.currency||'';
+  $('items').innerHTML = ex.items.map((it,i)=>`<tr><td><input data-i="${i}" data-k="name" value="${esc(it.name)}"></td>
+    <td><input data-i="${i}" data-k="quantity" value="${esc(it.quantity)}"></td><td><input data-i="${i}" data-k="unit_price" value="${esc(it.unit_price??'')}"></td></tr>`).join('')
+    || '<tr><td colspan="3" class="muted">No items found</td></tr>';
+  const a=ex.amounts; $('amounts').innerHTML = a ? `Subtotal ${a.subtotal} · Tax ${a.tax} · Shipping ${a.shipping} · <b>Total ${a.total} ${ex.currency}</b>` : '';
+  $('issues').innerHTML = ex.issues.map(i=>`<div class="${i.level}">${i.level.toUpperCase()}: ${esc(i.msg)}</div>`).join('');
+  $('btnCreate').disabled = !ex.ready;
+}
+function editedExtraction(){
+  const ex = JSON.parse(JSON.stringify(lastEx));
+  ex.customer = {name:$('cName').value.trim()||null, email:$('cEmail').value.trim()||null};
+  ex.currency = $('cCcy').value.trim().toUpperCase(); ex.currency_source='detected'; ex.warnings=[];
+  document.querySelectorAll('#items input').forEach(inp=>{ const it=ex.items[+inp.dataset.i]; const k=inp.dataset.k;
+    it[k] = k==='quantity' ? Math.max(1, parseInt(inp.value)||1) : inp.value.trim(); it.price_basis='unit'; });
+  delete ex.issues; delete ex.amounts; return ex;
+}
+async function create(){
+  $('btnCreate').disabled=true; $('trace').textContent='Agent working...';
+  try{ const rec = await api('/api/process',{text:$('text').value, mode:$('mode').value, extraction:editedExtraction()});
+    renderTrace(rec); loadLedger(); }
+  catch(e){ toast(e.message); } finally{ $('btnCreate').disabled=false; }
+}
+function renderTrace(rec){
+  let h='';
+  for(const s of rec.trace){
+    h += `<span class="${s.step.startsWith('AI')?'a':'s'}">▸ ${esc(s.step)}</span>  ${esc(s.detail)}\n`;
+    for(const c of (s.calls||[])) h += `    <span class="${c.status>=400?'e':'c'}">${c.method} ${esc(c.path)} → ${c.status}${c.mock?' (mock)':''}${c.ms?` ${c.ms}ms`:''}${c.debug_id?` debug_id=${c.debug_id}`:''}</span>\n`;
+  }
+  $('trace').innerHTML=h;
+  $('result').innerHTML = rec.pay_link ? `<span class="badge ${rec.status}">${rec.status}</span> ${rec.kind} <b>${rec.total} ${rec.currency}</b> · <a href="${esc(rec.pay_link)}" target="_blank">PayPal pay link</a>
+    <button class="ghost sm" onclick="copyLink('${esc(rec.pay_link)}')">Copy link</button>` : `<span class="badge ${rec.status}">${rec.status}</span> ${esc(rec.error||'')}`;
+}
+function copyLink(l){ navigator.clipboard?.writeText(l); toast('Link copied - paste it into the chat'); }
+
+async function loadLedger(){
+  const {records, summary} = await api('/api/records');
+  $('tOut').textContent=money(summary.outstanding); $('tCol').textContent=money(summary.collected);
+  $('tCnt').textContent=summary.count; $('tExc').textContent=summary.exceptions;
+  if(!records.length){ $('ledger').innerHTML='<tr><td colspan="7" class="muted">No records yet.</td></tr>'; return; }
+  $('ledger').innerHTML = records.map(r=>`<tr>
+    <td><b>${r.id}</b><div class="events">${esc((r.events||[]).slice(-2).map(e=>e.msg).join(' · '))}</div></td>
+    <td>${esc(r.customer.name||'-')}<div class="muted">${esc(r.customer.email||'')}</div></td>
+    <td>${r.kind||'-'}${r.invoice_number?`<div class="muted">#${esc(r.invoice_number)}</div>`:''}</td>
+    <td>${r.total??'-'} ${r.currency}${r.paid_amount&&r.paid_amount!=='0.00'?`<div class="muted">paid ${r.paid_amount}</div>`:''}</td>
+    <td><span class="badge ${r.status}">${r.status}</span>${r.status_flag?` <span class="badge SUSPICIOUS">FAKE NOTICE?</span>`:''}<div class="muted">${esc(r.paypal_status||'')}</div></td>
+    <td class="muted">${esc(r.paypal_id||'')}${r.pay_link?`<br><a href="${esc(r.pay_link)}" target="_blank">pay link</a>`:''}</td>
+    <td>${mode==='mock' && ['AWAITING_PAYMENT','PARTIALLY_PAID'].includes(r.status)?`<button class="ghost sm" onclick="simulate('${r.id}')">Simulate buyer pays</button> `:''}
+        ${['AWAITING_PAYMENT','PARTIALLY_PAID'].includes(r.status)?`<button class="ghost sm" onclick="remind('${r.id}')">Reminder</button>`:''}</td></tr>`).join('');
+}
+async function simulate(id){ await api('/api/simulate/'+id,{}); toast('Buyer paid in PayPal (simulated). Now press Sync.'); loadLedger(); }
+async function remind(id){ const r = await api(`/api/records/${id}/reminder`); navigator.clipboard?.writeText(r.text); toast('Reminder copied: '+r.text); }
+async function sync(){
+  $('btnSync').disabled=true;
+  try{ const r = await api('/api/sync',{}); toast(r.changes.length ? r.changes.map(c=>`${c.id}: ${c.from} → ${c.to}`).join(' | ') : 'Up to date with PayPal');
+    if(r.changes.length){ let h='<span class="s">▸ sync with PayPal</span>\n';
+      for(const c of r.changes){ h+=`  ${c.id}: ${c.from} → ${c.to}\n`; for(const k of c.calls) h+=`    <span class="c">${k.method} ${esc(k.path)} → ${k.status}</span>\n`; }
+      $('trace').innerHTML=h; }
+    loadLedger(); } catch(e){ toast(e.message); } finally{ $('btnSync').disabled=false; }
+}
+async function match(){
+  const text=$('payText').value.trim(); if(!text) return toast('Paste payment notices first');
+  const r = await api('/api/payments',{text});
+  $('matches').innerHTML = '<table><thead><tr><th>Payment</th><th>Matched record</th><th>Score</th><th>Agent action</th></tr></thead><tbody>' +
+    r.results.map(m=>`<tr><td>${m.payment.amount} ${m.payment.currency}<div class="muted">${esc(m.payment.payer||'?')} · ${m.payment.method}${m.payment.reference?' · ref '+esc(m.payment.reference):''}</div></td>
+      <td>${m.record_id||'-'}<div class="muted">${esc(m.reason)}</div></td><td>${m.score}</td>
+      <td class="${/WARNING|DUPLICATE/.test(m.action)?'error':/unmatched/.test(m.action)?'warning':''}">${esc(m.action)}</td></tr>`).join('') + '</tbody></table>';
+  loadLedger();
+}
+$('btnExtract').onclick=extract; $('btnCreate').onclick=create; $('btnSync').onclick=sync; $('btnMatch').onclick=match;
+$('btnPaySample').onclick=()=>{$('payText').value=samples.payments||'';};
+$('btnReset').onclick=async()=>{ if(confirm('Clear the local ledger? (PayPal records are not touched)')){ await api('/api/reset',{}); loadLedger(); $('matches').innerHTML=''; } };
+init();
+</script>
+</body>
+</html>

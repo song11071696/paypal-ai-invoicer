@@ -1,0 +1,6 @@
+客户: 王芳
+邮箱: wangfang@example.com
+手工皂 3个 单价 25 HKD
+香薰蜡烛 2个 单价 60 HKD
+运费: 20 HKD
+合计: 215 HKD

@@ -1,0 +1,11 @@
+ACME FLORAL STUDIO            INVOICE
+Bill to: Daniel Okafor
+Email: d.okafor@example.org
+Date: 2026-10-28
+
+Wedding centrepiece x4 - 180.00 EUR
+Bridal bouquet x1 - 95.00 EUR
+Delivery fee: 25.00 EUR
+Grand total: 300.00 EUR
+Payment terms: Net 15
+Note: Thank you for choosing Acme Floral!
